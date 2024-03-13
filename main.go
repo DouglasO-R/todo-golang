@@ -7,25 +7,38 @@ import (
 	"github.com/google/uuid"
 )
 
+var DB ITodoDatabase
+
 type ITodoDatabase interface {
 	RetrieveTodoList () []Todo
+	CreateTodo (todo Todo) 
 }
 
 type InMemoryTodoDatabase struct{
+	todoList map[uuid.UUID]Todo
 
-}
-
-func (inMemoryTodoDatabase *InMemoryTodoDatabase) RetrieveTodoList() []Todo {
-	return  []Todo{
-		{UUID: uuid.New(),Title: "test"},
-		{UUID: uuid.New(),Title: "test2"},
-		{UUID: uuid.New(),Title: "test3"},
-	}
 }
 
 func NewInMemoryTodoDatabase() InMemoryTodoDatabase {
-	return InMemoryTodoDatabase{}
+	result := InMemoryTodoDatabase{}
+	result.todoList = make(map[uuid.UUID]Todo)
+	return result
 }
+
+
+func (inMemoryTodoDatabase *InMemoryTodoDatabase) RetrieveTodoList() []Todo {
+	todos := make([]Todo, 0)
+	for _,todo := range inMemoryTodoDatabase.todoList{
+		todos = append(todos, todo)
+	}
+
+	return todos;
+}
+
+func (inMemoryTodoDatabase *InMemoryTodoDatabase) CreateTodo(todo Todo){
+	uniqueId := todo.UUID
+	inMemoryTodoDatabase.todoList[uniqueId]=todo
+}	
 
 type Todo struct{
 	UUID uuid.UUID `json:"id"`
@@ -37,17 +50,26 @@ type TodosResponse struct {
 }
 
 func main() {
-	r := gin.Default()
+	router := gin.Default()
+	DB := NewInMemoryTodoDatabase();
 
-	r.GET("/todos", func(c *gin.Context) {
-		db := NewInMemoryTodoDatabase();
-		response := TodosResponse{
-			Items: db.RetrieveTodoList(),
+	router.GET("/todos", func(response *gin.Context) {
+		res := TodosResponse{
+			Items: DB.RetrieveTodoList(),
 		} // Sua lista de itens aqui
 
 
-		c.JSON(http.StatusOK,response)
+		response.JSON(http.StatusOK,res)
 	})
-	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+
+	router.POST("/todos", func(response *gin.Context) {
+		todo := Todo{UUID: uuid.New(),Title: "test"}
+		DB.CreateTodo(todo)
+
+		response.JSON(http.StatusOK,gin.H{})
+	})
+
+
+	router.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
